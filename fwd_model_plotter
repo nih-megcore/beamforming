@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Feb  7 10:56:50 2024
+
+@author: bansals3
+"""import pathlib
+import os, os.path as op
+import mne
+from mne.datasets import sample
+
+n_jobs = 20 #CHANGE
+topdir = pathlib.PurePath('/data/ML_MEG') # topdir = '/data/ML_MEG'
+
+subj_dir_surf = pathlib.PurePath(op.join(topdir, 'NIH_hvmeg/derivatives/sternberg_surf'))
+subj_dir_vol = pathlib.PurePath(op.join(topdir, 'NIH_hvmeg/derivatives/sternberg_vol'))
+
+subjid = 'AZSEYXWS'
+
+
+fwd_surf_fname = subj_dir_surf / f'sub-{subjid}' / 'ses-1' / 'meg' / f'sub-{subjid}_ses-1_task-sternberg_run-01_fwd.fif'
+fwd_surf = mne.read_forward_solution(fwd_surf_fname)
+
+fwd_vol_fname = subj_dir_vol / f'sub-{subjid}' / 'ses-1' / 'meg' / f'sub-{subjid}_ses-1_task-sternberg_run-01_fwd.fif'
+fwd_vol = mne.read_forward_solution(fwd_vol_fname)
+
+
+
+
+mag_map = mne.sensitivity_map(fwd_surf, ch_type="mag", mode="fixed")
+mag_map.plot()
