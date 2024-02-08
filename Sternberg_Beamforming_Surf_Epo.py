@@ -120,7 +120,7 @@ def fsaverage_morph(stc):
     fetch_fsaverage(subjects_dir, verbose=False)  # ensure fsaverage src exists
     fname_fs_src = subjects_dir.joinpath('fsaverage','bem', 'fsaverage-ico-5-src.fif')
     src_fs = mne.read_source_spaces(fname_fs_src)
-    src = get_mri(stc.subject[4:])['src']
+    src = get_mri(stc.subject[4:])['fwd']['src']
     morph = mne.compute_source_morph(
         src,
         subject_from='sub-'+stc.subject[4:],
