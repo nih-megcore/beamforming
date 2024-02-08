@@ -1,2 +1,2 @@
 # beamforming
-Scripts for Beamforming the Sternberg Task
+Beamforming scripts for the Sternberg Working Memory Task
