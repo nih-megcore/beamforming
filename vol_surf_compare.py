@@ -43,8 +43,7 @@ subj_dir = pathlib.PurePath(op.join(topdir, 'NIH_hvmeg/derivatives/freesurfer/su
 #Setup for fs average warping
 subjects_dir = subj_dir
 fetch_fsaverage(subjects_dir, verbose=False)  # ensure fsaverage src exists
-fname_fs_src = subjects_dir.joinpath('fsaverage','bem','fsaverage-ico-5-src.fif')
-src_fs = mne.read_source_spaces(fname_fs_src)
+
 
 fsaverage = '/data/ML_MEG/NIH_hvmeg/derivatives/freesurfer/subjects/fsaverage'
 
@@ -55,8 +54,10 @@ def fsaverage_morph(stc, subj_src=None, src_type='surf'):
     fetch_fsaverage(subjects_dir, verbose=False)  # ensure fsaverage src exists
     if src_type=='surf':
         fname_fs_src = subjects_dir.joinpath('fsaverage','bem','fsaverage-ico-5-src.fif')
+        src_fs = mne.read_source_spaces(fname_fs_src)
     else:
         fname_fs_src = subjects_dir.joinpath('fsaverage','bem', 'fsaverage-vol-5-src.fif')
+        src_fs = mne.read_source_spaces(fname_fs_src)
     src_fs = mne.read_source_spaces(fname_fs_src)
     morph = mne.compute_source_morph(
         subj_src,
@@ -68,10 +69,7 @@ def fsaverage_morph(stc, subj_src=None, src_type='surf'):
         zooms=3,  
         verbose=True,
     )
-    if src_type=='surf':
-        stc = morph.apply(stc)
-    else:
-        stc = morph.apply(stc, mri_resolution=2, output="nifti1")
+    stc = morph.apply(stc)
     return stc
 
 
@@ -102,8 +100,14 @@ def full_process(subjid, fmin=None, fmax=None, vol_src=False):
     else:
         fwd = mri_dict['volfwd'].load()
         src = fwd['src']
-    
-    
+        
+    if src_type=='surf':
+        fname_fs_src = subjects_dir.joinpath('fsaverage','bem','fsaverage-ico-5-src.fif')
+        src_fs = mne.read_source_spaces(fname_fs_src)
+    else:
+        fname_fs_src = subjects_dir.joinpath('fsaverage','bem', 'fsaverage-vol-5-src.fif')
+        src_fs = mne.read_source_spaces(fname_fs_src)
+        
     evts, evtsid = mne.events_from_annotations(raw)
     evtsid_4_6 = {i:j for i,j in evtsid.items() if i in ['encode4','encode6']}
     epo = mne.Epochs(raw, evts, event_id=evtsid_4_6, preload=True, tmin=0, tmax=2, baseline=None) # define epo
@@ -176,15 +180,16 @@ def full_process(subjid, fmin=None, fmax=None, vol_src=False):
     
     stc4.save(stc4_fname.fpath)
     stc6.save(stc6_fname.fpath)
-    stc_ratio.save(stc_ratio_fname.fpath)
-    
+
     stc_ratio_fs=fsaverage_morph(stc_ratio, subj_src=src, src_type=src_type)
     
     stc_ratio_fs_fname = deriv_path.copy().update(description='Enc6o4RatioFS')
     if src_type == 'vol':
+        stc_ratio.save_as_volume(stc_ratio_fname.update(extension='.nii'), src)
         stc_ratio_fs_fname.update(extension='.nii')
-        stc_ratio_fs.to_filename(stc_ratio_fs_fname.fpath)
+        stc_ratio_fs.save_as_volume(stc_ratio_fs_fname.fpath, src_fs)
     else:
+        stc_ratio.save(stc_ratio_fname.fpath)
         stc_ratio_fs.save(stc_ratio_fs_fname.fpath) 
     
 
