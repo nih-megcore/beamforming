@@ -159,8 +159,8 @@ def full_process(subjid, fmin=None, fmax=None, vol_src=False):
         stc._data = stc._data**2
     
     
-    stc4 = np.mean(stcs4) 
-    stc6 = np.mean(stcs6) 
+    stc4 = np.mean(stcs4).mean() 
+    stc6 = np.mean(stcs6).mean()
     stc_ratio = copy.deepcopy(stc4)
     stc_ratio._data = np.log(stc6._data / stc4._data)
     
