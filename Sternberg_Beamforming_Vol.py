@@ -128,7 +128,7 @@ def fsaverage_morph(stc):
     fetch_fsaverage(subjects_dir, verbose=False)  # ensure fsaverage src exists
     fname_fs_src = subjects_dir.joinpath('fsaverage','bem', 'fsaverage-vol-5-src.fif')
     src_fs = mne.read_source_spaces(fname_fs_src)
-    src = get_mri(stc.subject[4:])['src']
+    src = get_mri(stc.subject[4:])['fwd']['src']
     morph = mne.compute_source_morph(
         src,
         subject_from='sub-'+stc.subject[4:],
@@ -147,7 +147,7 @@ def get_mri(subject):
     if subject[0:2] == 'ON':
         #subject = 'ON02747'    
         bids_dir = str(topdir.joinpath('NIH_hvmeg'))
-        output_dirname = 'sternberg_vol'      ###RESET NAME!!!!
+        output_dirname = 'sternberg_vol_3'      ###RESET NAME!!!!
         task_type = 'sternberg'
         # =============================================================================
         # general variables
@@ -219,17 +219,17 @@ def get_mri(subject):
             mne.write_trans(trans_fname.fpath, trans, overwrite=True)
         else:
             trans = mne.read_trans(trans_fname.fpath)
-        #if fwd_fname.fpath.exists():
-          #  fwd = mne.read_forward_solution(fwd_fname)
-        #else:
-        fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
+        if fwd_fname.fpath.exists():
+            fwd = mne.read_forward_solution(fwd_fname)
+        else:
+            fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
                                         n_jobs=n_jobs)
-        mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
+            mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
         return {'fwd': fwd, 'trans': trans, 'src': src}
     else:
         #subject = 'ON02747'    
         bids_dir = str(topdir.joinpath('NIH_hvmeg'))
-        output_dirname = 'sternberg_vol'      ###RESET NAME!!!!
+        output_dirname = 'sternberg_vol_3'      ###RESET NAME!!!!
         task_type = 'sternberg'
         # =============================================================================
         # general variables
@@ -304,12 +304,12 @@ def get_mri(subject):
             mne.write_trans(trans_fname.fpath, trans, overwrite=True)
         else:
             trans = mne.read_trans(trans_fname.fpath)
-        #if fwd_fname.fpath.exists():
-          #  fwd = mne.read_forward_solution(fwd_fname)
-        #else:
-        fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
+        if fwd_fname.fpath.exists():
+            fwd = mne.read_forward_solution(fwd_fname)
+        else:
+            fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
                                         n_jobs=n_jobs)
-        mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
+            mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
         return {'fwd': fwd, 'trans': trans, 'src': src}
 
 def average_stcs(stcs):
@@ -365,12 +365,12 @@ def full_process(filename, fmin, fmax):
     raw.filter(fmin, fmax) #15.0,25)
     anat_dict =  get_mri(subjid)
     fwd = anat_dict['fwd']
-    
-    os.chdir('/data/ML_MEG/beamforming/epoched_2/fwd_vol')
+    '''
+    os.chdir('/data/ML_MEG/beamforming/epoched_3/vol')
     with open(f"{subjid}_fwd.pkl", "wb") as fp:
         pickle.dump(fwd, fp)  
     os.chdir(topdir)
-    
+    '''
     evts, evtsid = mne.events_from_annotations(raw)
     e = [x for x in evts if x[2] == 1 or x[2] == 2]#  x[2] == ?]
     e4 = [x for x in evts if x[2] == 1]
@@ -403,6 +403,7 @@ def full_process(filename, fmin, fmax):
     
     #noise_cov = mne.compute_covariance(epo, tmin = -0.4, tmax = 0, method = 'shrunk', cv =5, n_jobs=n_jobs)
     noise_cov = mne.compute_covariance(epo_noise)
+
     
     noise_rank = mne.compute_rank(epo_noise)
     epo_rank = mne.compute_rank(epo)
@@ -424,9 +425,14 @@ def full_process(filename, fmin, fmax):
     filters['max_power_ori'] *= ori_flip[:,np.newaxis]
     
     #APPLY FILTER TO MAKE STC LIST OF EPOCHS
+    stc_noise = apply_lcmv_cov(noise_cov, filters)
     stcs4 = apply_lcmv_epochs(epochs=epo4, filters=filters, return_generator=False)  
     stcs6 = apply_lcmv_epochs(epochs=epo6, filters=filters, return_generator=False)  
-
+    
+    stc_noise = apply_lcmv_cov(noise_cov, filters)
+    
+    for stc in stcs4+stcs6:
+        stc.data /= stc_noise.data    #Noise normalization
 # =============================================================================
 #     #Save out the stcs6 and the stcs4 to mapped drive
 #     os.chdir('X:\\beamforming\epoched')
@@ -460,7 +466,7 @@ def full_process(filename, fmin, fmax):
     #AVERAGE ACROSS TIME
     stc4_fin = stc4_av.mean()
     stc6_fin = stc6_av.mean()
-    
+    '''
     #SAVE OUT STC 4 and STC6
     os.chdir('/data/ML_MEG/beamforming/epoched_2/stc_4_vol')
     with open(f"{subjid}_stc4.pkl", "wb") as fp:
@@ -471,22 +477,27 @@ def full_process(filename, fmin, fmax):
     with open(f"{subjid}_stc6.pkl", "wb") as fp:
         pickle.dump(stc6_fin, fp)  
     os.chdir(topdir)
-    
+    '''
     
     #FIND THE LOG RATIO
     stc_ratio = stc4_fin.copy()
     stc_ratio.data = np.log(stc6_fin.data/stc4_fin.data)
     #stc_noise = apply_lcmv_cov(noise_cov, filters)
-    
+    '''
     #Save out the fs stc to mapped drive
     #os.chdir('X:\\beamforming\\epoched\\time_series_vol')
-    os.chdir('/data/ML_MEG/beamforming/epoched2/time_series_vol')
+    os.chdir('/data/ML_MEG/beamforming/epoched_3/vol')
     with open(f"{subjid}_unmorphed_ratio.pkl", "wb") as fp:
         pickle.dump(stc_ratio, fp)  
     os.chdir(topdir)
-    
+    '''
     #MORPHING TO STANDARD SPACE
-    #stc_ratio_fs=fsaverage_morph(stc_ratio)
+    stc_ratio_fs=fsaverage_morph(stc_ratio)
+
+    os.chdir('/data/ML_MEG/beamforming/epoched_3/vol')
+    with open(f"{subjid}_morph_ratio.pkl", "wb") as fp:
+        pickle.dump(stc_ratio_fs, fp)  
+    os.chdir(topdir)
 
 # =============================================================================
 #     #Save out the fs stc to mapped drive
@@ -496,4 +507,4 @@ def full_process(filename, fmin, fmax):
 #     os.chdir(topdir)
 # =============================================================================
 
-    return stc_ratio
+    return stc_ratio_fs

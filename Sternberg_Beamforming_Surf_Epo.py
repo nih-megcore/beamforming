@@ -27,7 +27,7 @@ import mne_bids
 from mne_bids import BIDSPath
 import pathlib
 
-n_jobs = 55 #CHANGE
+n_jobs = 20 #CHANGE
 
 topdir = pathlib.PurePath('/data/ML_MEG') # topdir = '/data/ML_MEG'
 resultsdir = pathlib.PurePath(op.join(topdir, 'results_s_final'))
@@ -128,7 +128,7 @@ def fsaverage_morph(stc):
         subjects_dir=subj_dir,
         niter_sdr=[5, 5, 3],
         niter_affine=[100, 100, 10],
-        zooms=3,  # just for speed
+        zooms= 'auto',  # just for speed
         verbose=True,
     )
 
@@ -139,7 +139,7 @@ def get_mri(subject):
     if subject[0:2] == 'ON':
         #subject = 'ON02747'    
         bids_dir = '/data/ML_MEG/NIH_hvmeg'
-        output_dirname = 'sternberg_surf'      ###RESET NAME!!!!
+        output_dirname = 'sternberg_surf_3'      ###RESET NAME!!!!
         task_type = 'sternberg'
         # =============================================================================
         # general variables
@@ -194,17 +194,17 @@ def get_mri(subject):
             mne.write_trans(trans_fname.fpath, trans, overwrite=True)
         else:
             trans = mne.read_trans(trans_fname.fpath)
-        #if fwd_fname.fpath.exists():
-          #  fwd = mne.read_forward_solution(fwd_fname)
-        #else:
-        fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
-                                        n_jobs=n_jobs)
-        mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
+        if fwd_fname.fpath.exists():
+            fwd = mne.read_forward_solution(fwd_fname)
+        else:
+            fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
+                                            n_jobs=n_jobs)
+            mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
         return {'fwd': fwd, 'trans': trans, 'src': src}
     else:
         #subject = 'ON02747'    
         bids_dir = '/data/ML_MEG/NIH_hvmeg'
-        output_dirname = 'sternberg_test'      ###RESET NAME!!!!
+        output_dirname = 'sternberg_surf_3'      ###RESET NAME!!!!
         task_type = 'sternberg'
         # =============================================================================
         # general variables
@@ -224,8 +224,9 @@ def get_mri(subject):
         else:
             pass'''
         deriv_path = bids_path.copy().update(root=output_dir, check=False)
+        src = mne.setup_source_space(fs_subject, spacing='oct6', add_dist='patch', subjects_dir=subjects_dir)
+        src.save(src_fname.fpath, overwrite=True) 
         deriv_path.directory.mkdir(exist_ok=True, parents=True)
-    
         raw_fname = bids_path.copy().update(run = '01', session = '1')
         bem_fname = deriv_path.copy().update(suffix='bem', extension='.fif')
         fwd_fname = deriv_path.copy().update(suffix='fwd', extension='.fif')
@@ -246,8 +247,7 @@ def get_mri(subject):
             bem_sol = mne.read_bem_solution(bem_fname)
             
         if not src_fname.fpath.exists():
-            src = mne.setup_source_space(fs_subject, spacing='oct6', add_dist='patch',
-                                 subjects_dir=subjects_dir)
+            src = mne.setup_source_space(fs_subject, spacing='oct6', add_dist='patch', subjects_dir=subjects_dir)
             src.save(src_fname.fpath, overwrite=True)
         else:
             src = mne.read_source_spaces(src_fname.fpath)
@@ -259,12 +259,12 @@ def get_mri(subject):
             mne.write_trans(trans_fname.fpath, trans, overwrite=True)
         else:
             trans = mne.read_trans(trans_fname.fpath)
-        #if fwd_fname.fpath.exists():
-          #  fwd = mne.read_forward_solution(fwd_fname)
-        #else:
-        fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
+        if fwd_fname.fpath.exists():
+            fwd = mne.read_forward_solution(fwd_fname)
+        else:
+            fwd = mne.make_forward_solution(raw.info, trans, src, bem_sol, eeg=False, 
                                         n_jobs=n_jobs)
-        mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
+            mne.write_forward_solution(fwd_fname.fpath, fwd, overwrite=True)
         return {'fwd': fwd, 'trans': trans, 'src': src}
 
 
@@ -374,9 +374,14 @@ def full_process(filename, fmin, fmax):
     filters['max_power_ori'] *= ori_flip[:,np.newaxis]
     
     #APPLY FILTER TO MAKE STC LIST OF EPOCHS
+    stc_noise = apply_lcmv_cov(noise_cov, filters)
     stcs4 = apply_lcmv_epochs(epochs=epo4, filters=filters, return_generator=False)  
     stcs6 = apply_lcmv_epochs(epochs=epo6, filters=filters, return_generator=False)  
 
+    stc_noise = apply_lcmv_cov(noise_cov, filters)
+    
+    for stc in stcs4+stcs6:
+        stc.data /= stc_noise.data    #Noise normalization
 # =============================================================================
 #     #Save out the stcs6 and the stcs4 to mapped drive
 #     os.chdir('X:\\beamforming\epoched')
@@ -410,7 +415,7 @@ def full_process(filename, fmin, fmax):
     #AVERAGE ACROSS TIME
     stc4_fin = stc4_av.mean()
     stc6_fin = stc6_av.mean()
-    
+    '''
     #SAVE OUT STC 4 and STC6
     os.chdir('/data/ML_MEG/beamforming/epoched_2/stc_4')
     with open(f"{subjid}_stc4.pkl", "wb") as fp:
@@ -421,7 +426,7 @@ def full_process(filename, fmin, fmax):
     with open(f"{subjid}_stc6.pkl", "wb") as fp:
         pickle.dump(stc6_fin, fp)  
     os.chdir(topdir)
-    
+    '''
     #FIND THE LOG RATIO
     stc_ratio = stc4_fin.copy()
     stc_ratio.data = np.log(stc6_fin.data/stc4_fin.data)
@@ -431,7 +436,7 @@ def full_process(filename, fmin, fmax):
     stc_ratio_fs=fsaverage_morph(stc_ratio)
 
     #Save out the fs stc to mapped drive
-    os.chdir('/data/ML_MEG/beamforming/epoched_2/stc_ratio_morphed')
+    os.chdir('/data/ML_MEG/beamforming/epoched_3/surf')
     with open(f"{subjid}_morph_ratio.pkl", "wb") as fp:
         pickle.dump(stc_ratio_fs, fp)  
     os.chdir(topdir)
