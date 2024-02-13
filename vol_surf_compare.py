@@ -159,8 +159,8 @@ def full_process(subjid, fmin=None, fmax=None, vol_src=False):
     
     #Normalize with noise
     for stc in stcs4+stcs6:
-        stc._data /= stc_noise._data
         stc._data = stc._data**2
+        stc._data /= stc_noise._data
     
     
     stc4 = np.mean(stcs4).mean() 
