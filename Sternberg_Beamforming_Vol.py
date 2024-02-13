@@ -494,7 +494,7 @@ def full_process(filename, fmin, fmax):
     #MORPHING TO STANDARD SPACE
     stc_ratio_fs=fsaverage_morph(stc_ratio)
 
-    os.chdir('/data/ML_MEG/beamforming/epoched_3/vol')
+    os.chdir('/data/ML_MEG/beamforming/epoched_4/vol')
     with open(f"{subjid}_morph_ratio.pkl", "wb") as fp:
         pickle.dump(stc_ratio_fs, fp)  
     os.chdir(topdir)
