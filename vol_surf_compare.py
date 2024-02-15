@@ -93,7 +93,12 @@ def full_process(subjid, fmin=None, fmax=None, vol_src=False):
     raw_eroom.notch_filter([60], n_jobs=n_jobs)
     raw_eroom.filter(fmin, fmax)
     
-    mri_dict = get_mri_dict(subjid, task='sternberg', project='nihmeg', bids_root=bids_root)
+    if subjid[:2] == 'ON':
+        session = '01'
+    else:
+        session = '1'
+        
+    mri_dict = get_mri_dict(subjid, task='sternberg', project='nihmeg', bids_root=bids_root, session=session)
     if vol_src==False:
         fwd = mri_dict['fwd'].load()
         src = fwd['src']
